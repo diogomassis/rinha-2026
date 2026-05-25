@@ -53,3 +53,9 @@ wheels/
 *.swp
 *.swo
 .DS_Store
+
+# Test folder
+test/
+
+# Data generator folder
+data-generator/
