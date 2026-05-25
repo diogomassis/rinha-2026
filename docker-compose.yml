@@ -18,20 +18,30 @@ services:
   rinha-2026-1:
     image: ghcr.io/diogomassis/rinha-2026:latest
     platform: linux/amd64
+    command: uvicorn app.main:app --host 0.0.0.0 --port 80
     deploy:
       resources:
         limits:
           cpus: "0.45"
           memory: "160MB"
+    networks:
+      default:
+        aliases:
+          - rinha-2026-1
 
   rinha-2026-2:
     image: ghcr.io/diogomassis/rinha-2026:latest
     platform: linux/amd64
+    command: uvicorn app.main:app --host 0.0.0.0 --port 80
     deploy:
       resources:
         limits:
           cpus: "0.45"
           memory: "160MB"
+    networks:
+      default:
+        aliases:
+          - rinha-2026-2
 
 networks:
   default:
