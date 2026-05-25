@@ -1,0 +1,18 @@
+{
+    "participants": [
+        "Diogo Martins"
+    ],
+    "social": [
+        "https://github.com/diogomassis/",
+        "https://www.linkedin.com/in/diogomassis"
+    ],
+    "source-code-repo": "https://github.com/diogomassis/rinha-2026",
+    "stack": [
+        "python",
+        "fastapi",
+        "uvicorn",
+        "haproxy",
+        "annoy"
+    ],
+    "open_to_work": true
+}

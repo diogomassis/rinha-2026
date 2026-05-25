@@ -1,0 +1,38 @@
+services:
+  haproxy:
+    image: haproxy:2.8-alpine
+    platform: linux/amd64
+    ports:
+      - "9999:9999"
+    volumes:
+      - ./haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    depends_on:
+      - rinha-2026-1
+      - rinha-2026-2
+    deploy:
+      resources:
+        limits:
+          cpus: "0.1"
+          memory: "30MB"
+
+  rinha-2026-1:
+    image: ghcr.io/diogomassis/rinha-2026:latest
+    platform: linux/amd64
+    deploy:
+      resources:
+        limits:
+          cpus: "0.45"
+          memory: "160MB"
+
+  rinha-2026-2:
+    image: ghcr.io/diogomassis/rinha-2026:latest
+    platform: linux/amd64
+    deploy:
+      resources:
+        limits:
+          cpus: "0.45"
+          memory: "160MB"
+
+networks:
+  default:
+    driver: bridge
