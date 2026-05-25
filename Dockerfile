@@ -46,4 +46,4 @@ COPY --from=builder /app/resources/references.ann /app/resources/references.ann
 COPY --from=builder /app/resources/reference_labels.npy /app/resources/reference_labels.npy
 
 # fixed the path to main.py relative to WORKDIR
-CMD ["fastapi", "run", "app/main.py", "--port", "80"]
+CMD ["fastapi", "run", "app/main.py", "--host", "0.0.0.0", "--port", "80"]
