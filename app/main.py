@@ -2,7 +2,7 @@ import sys
 
 from contextlib import asynccontextmanager
 from pathlib import Path
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
@@ -28,14 +28,21 @@ knn_engine = VectorEngine(normalization, mcc_risk)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app.state.ann_engine = AnnEngine.load(_REFERENCES_PATH)
+    try:
+        app.state.ann_engine = AnnEngine.load(_REFERENCES_PATH)
+        app.state.health = True
+    except Exception as e:
+        app.state.health = False
+        print(f"Failed to load ANN engine: {e}")
     yield
 
 app = FastAPI(lifespan=lifespan)
 
 @app.get("/ready")
 def ready():
-    return {"status": 200}
+    if not app.state.health:
+        raise HTTPException(status_code=500, detail="Service unhealthy")
+    return {"status": "healthy"}
 
 @app.post("/fraud-score")
 def fraud_score(request: FraudScoreRequest) -> FraudScoreResponse:
