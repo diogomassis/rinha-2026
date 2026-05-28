@@ -46,6 +46,7 @@ root_logger = logging.getLogger()
 if not root_logger.handlers:
     root_logger.addHandler(handler)
 root_logger.setLevel(logging.INFO)
+logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
 
 mcc_risk_path = str(_RESOURCES_DIR / "mcc_risk.json")
 mcc_risk = MccRiskConfig(mcc_risk_path)
@@ -80,23 +81,18 @@ app = FastAPI(lifespan=lifespan)
 @app.get("/ready")
 def ready():
     if not app.state.health:
-        logging.error("Readiness check failed: service unhealthy")
         raise HTTPException(status_code=500, detail="Service unhealthy")
-    logging.info("Readiness check passed")
     return {"status": "healthy"}
 
 @app.post("/fraud-score")
 def fraud_score(request: FraudScoreRequest) -> FraudScoreResponse:
     try:
-        logging.info("Processing /fraud-score request")
         t0 = time.perf_counter()
         vector = knn_engine.vectorization(request=request)
         t1 = time.perf_counter()
         ann_engine: AnnEngine = app.state.ann_engine
         approved, fraud_score = ann_engine.predict(vector)
         t2 = time.perf_counter()
-        logging.info(f"Vectorization took {t1 - t0:.3f}s; prediction took {t2 - t1:.3f}s")
-        logging.info(f"Prediction result: approved={approved} fraud_score={fraud_score}")
         return FraudScoreResponse(approved=approved, fraud_score=fraud_score)
     except Exception as e:
         logging.exception(f"Error processing /fraud-score: {e}")
