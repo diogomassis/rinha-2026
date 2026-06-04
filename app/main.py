@@ -1,12 +1,10 @@
-import sys
-import logging
-import time
+import sys, logging, os, time
 
-from services.ann.ann_engine import EXPECTED_INPUT_SIZE
-
-from contextlib import asynccontextmanager
 from pathlib import Path
 from fastapi import FastAPI, HTTPException
+from contextlib import asynccontextmanager
+
+from services.ann.ann_engine import EXPECTED_INPUT_SIZE
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
@@ -21,6 +19,13 @@ from services.ann.ann_engine import AnnEngine
 
 _RESOURCES_DIR = Path(__file__).resolve().parents[1] / "resources"
 _REFERENCES_PATH = _RESOURCES_DIR / "references.json.gz"
+
+
+def _env_flag(name: str, default: bool = False) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() not in {"0", "false", "no", "off"}
 
 # Colored logging setup (green for normal/info, red for errors)
 class ColorFormatter(logging.Formatter):
@@ -58,21 +63,20 @@ knn_engine = VectorEngine(normalization, mcc_risk)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    app.state.health = False
+    app.state.ready = False
     try:
         app.state.ann_engine = AnnEngine.load(_REFERENCES_PATH)
-        app.state.health = True
         logging.info(f"Loaded ANN engine from {_REFERENCES_PATH}")
-        # Warm-up ANN engine to force any lazy loading or disk IO now
-        try:
+        if _env_flag("WARMUP_INDEX", default=True):
             warmup_vec = [0.0] * EXPECTED_INPUT_SIZE
             t0 = time.perf_counter()
             app.state.ann_engine.predict(warmup_vec)
             t1 = time.perf_counter()
             logging.info(f"ANN warmup completed in {t1 - t0:.3f}s")
-        except Exception:
-            logging.exception("ANN warmup failed (non-fatal)")
+        app.state.health = True
+        app.state.ready = True
     except Exception as e:
-        app.state.health = False
         logging.exception(f"Failed to load ANN engine: {e}")
     yield
 
@@ -80,19 +84,18 @@ app = FastAPI(lifespan=lifespan)
 
 @app.get("/ready")
 def ready():
-    if not app.state.health:
-        raise HTTPException(status_code=500, detail="Service unhealthy")
+    if not getattr(app.state, "health", False) or not getattr(app.state, "ready", False):
+        raise HTTPException(status_code=503, detail="Service not ready")
     return {"status": "healthy"}
 
 @app.post("/fraud-score")
 def fraud_score(request: FraudScoreRequest) -> FraudScoreResponse:
     try:
-        t0 = time.perf_counter()
         vector = knn_engine.vectorization(request=request)
-        t1 = time.perf_counter()
-        ann_engine: AnnEngine = app.state.ann_engine
+        ann_engine: AnnEngine | None = getattr(app.state, "ann_engine", None)
+        if ann_engine is None:
+            raise HTTPException(status_code=503, detail="Service not ready")
         approved, fraud_score = ann_engine.predict(vector)
-        t2 = time.perf_counter()
         return FraudScoreResponse(approved=approved, fraud_score=fraud_score)
     except Exception as e:
         logging.exception(f"Error processing /fraud-score: {e}")

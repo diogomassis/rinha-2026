@@ -11,6 +11,13 @@ class VectorEngine:
     def __init__(self, normalization: NormalizationConfig, mcc_risk: MccRiskConfig):
         self.normalization = normalization
         self.mcc_risk_config = mcc_risk
+        self.max_amount = normalization.max_amount
+        self.max_installments = normalization.max_installments
+        self.amount_vs_avg_ratio = normalization.amount_vs_avg_ratio
+        self.max_minutes = normalization.max_minutes
+        self.max_km = normalization.max_km
+        self.max_tx_count_24h = normalization.max_tx_count_24h
+        self.max_merchant_avg_amount = normalization.max_merchant_avg_amount
 
     def vectorization(self, request: FraudScoreRequest) -> list[float]:
         return [
@@ -34,13 +41,13 @@ class VectorEngine:
         return max(0.0, min(1.0, value))
     
     def _amount(self, transaction: Transaction) -> float:
-        return self._clamp(transaction.amount / self.normalization.max_amount)
+        return self._clamp(transaction.amount / self.max_amount)
     
     def _installments(self, transaction: Transaction) -> float:
-        return self._clamp(transaction.installments / self.normalization.max_installments)
+        return self._clamp(transaction.installments / self.max_installments)
     
     def _amount_vs_avg(self, transaction: Transaction, customer: Customer) -> float:
-        return self._clamp((transaction.amount / customer.avg_amount) / self.normalization.amount_vs_avg_ratio)
+        return self._clamp((transaction.amount / customer.avg_amount) / self.amount_vs_avg_ratio)
     
     def _hour_of_day(self, transaction: Transaction) -> float:
         return float(transaction.requested_at.hour) / 23.0
@@ -52,18 +59,18 @@ class VectorEngine:
         if not last_transaction:
             return -1.0
         elapsed_minutes = (transaction.requested_at - last_transaction.timestamp).total_seconds() / 60.0
-        return self._clamp(elapsed_minutes / self.normalization.max_minutes)
+        return self._clamp(elapsed_minutes / self.max_minutes)
 
     def _km_from_last_tx(self, last_transaction: LastTransaction) -> float:
         if not last_transaction:
             return -1.0
-        return self._clamp(last_transaction.km_from_current / self.normalization.max_km)
+        return self._clamp(last_transaction.km_from_current / self.max_km)
     
     def _km_from_home(self, terminal: Terminal) -> float:
-        return self._clamp(terminal.km_from_home / self.normalization.max_km)
+        return self._clamp(terminal.km_from_home / self.max_km)
     
     def _tx_count_24h(self, customer: Customer) -> float:
-        return self._clamp(customer.tx_count_24h / self.normalization.max_tx_count_24h)
+        return self._clamp(customer.tx_count_24h / self.max_tx_count_24h)
     
     def _is_online(self, terminal: Terminal) -> float:
         return 1.0 if terminal.is_online else 0.0
@@ -79,4 +86,4 @@ class VectorEngine:
         return 0.5 if mcc_risk is None else mcc_risk
     
     def _merchant_avg_amount(self, merchant: Merchant) -> float:
-        return self._clamp(merchant.avg_amount / self.normalization.max_merchant_avg_amount)
+        return self._clamp(merchant.avg_amount / self.max_merchant_avg_amount)

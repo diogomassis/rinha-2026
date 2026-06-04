@@ -12,7 +12,7 @@ NEAREST_NEIGHBORS = 5
 class AnnEngine:
     def __init__(self, ann_index: AnnoyIndex, reference_labels: np.ndarray, threshold: float = 0.6, k: int = NEAREST_NEIGHBORS):
         self.ann_index = ann_index
-        self.reference_labels = reference_labels.astype(np.float32)
+        self.reference_labels = reference_labels
         self.threshold = threshold
         self.k = k
 
@@ -31,7 +31,7 @@ class AnnEngine:
             raise FileNotFoundError(f"Annoy index or labels not found. Run scripts/build_ann_index.py to build them.\nMissing: {index_path if not index_path.exists() else ''} {labels_path if not labels_path.exists() else ''}")
 
         # load labels
-        labels = np.load(labels_path)
+        labels = np.load(labels_path, mmap_mode="r")
         dim = EXPECTED_INPUT_SIZE
         ann = AnnoyIndex(dim, "euclidean")
         ann.load(str(index_path))
@@ -39,7 +39,7 @@ class AnnEngine:
         return cls(ann_index=ann, reference_labels=labels, threshold=threshold, k=k)
 
     def predict_proba(self, vector: list[float] | np.ndarray) -> float:
-        vec = list(map(float, vector))
+        vec = vector.tolist() if isinstance(vector, np.ndarray) else vector
         if len(vec) != EXPECTED_INPUT_SIZE:
             raise ValueError(f"ANN expects {EXPECTED_INPUT_SIZE} input features, got {len(vec)}")
 
